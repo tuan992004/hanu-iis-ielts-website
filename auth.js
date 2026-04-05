@@ -1,38 +1,20 @@
 // ============================================================
-//  auth.js  –  BandPath User Database (localStorage)
-//  Dùng chung cho cả sign-in và sign-up page
+//  auth.js  –  BandPath User Database Integration
+//  Communicates with Node.js Express API
 // ============================================================
 
 const Auth = (() => {
-
-    const DB_KEY      = 'bandpath_users';
+    const API_URL = 'http://localhost:5000/api';
     const SESSION_KEY = 'bandpath_session';
-
-    // ── Helpers ───────────────────────────────────────────
-    function _getUsers() {
-        return JSON.parse(localStorage.getItem(DB_KEY) || '[]');
-    }
-
-    function _saveUsers(users) {
-        localStorage.setItem(DB_KEY, JSON.stringify(users));
-    }
-
-    // Simple hash (không dùng plain text, đủ cho frontend demo)
-    function _hash(str) {
-        let h = 0;
-        for (let i = 0; i < str.length; i++) {
-            h = Math.imul(31, h) + str.charCodeAt(i) | 0;
-        }
-        return h.toString(16);
-    }
+    const TOKEN_KEY = 'bandpath_token';
 
     // ── Public API ────────────────────────────────────────
 
     /**
      * Đăng ký tài khoản mới
-     * @returns { ok: bool, message: string }
+     * @returns { Promise<{ ok: bool, message: string, user?: object }> }
      */
-    function register({ firstName, lastName, username, email, password, confirmPassword }) {
+    async function register({ firstName, lastName, username, email, password, confirmPassword }) {
         // Validate
         if (!firstName || !lastName || !username || !email || !password) {
             return { ok: false, message: 'Vui lòng điền đầy đủ thông tin.' };
@@ -47,76 +29,86 @@ const Auth = (() => {
             return { ok: false, message: 'Email không hợp lệ.' };
         }
 
-        const users = _getUsers();
+        try {
+            const name = `${firstName.trim()} ${lastName.trim()}`;
+            const response = await fetch(`${API_URL}/auth/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    email: email.trim().toLowerCase(), 
+                    password, 
+                    name, 
+                    role: 'STUDENT' // Default to student
+                })
+            });
 
-        // Check trùng username / email
-        if (users.find(u => u.username.toLowerCase() === username.toLowerCase())) {
-            return { ok: false, message: 'Username đã được sử dụng.' };
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+                 return { ok: false, message: data.message || 'Đăng ký thất bại' };
+            }
+
+            _startSession(data.user, data.token);
+            return { ok: true, message: 'Đăng ký thành công!', user: data.user };
+        } catch (error) {
+            console.error('API Error:', error);
+            return { ok: false, message: 'Không thể kết nối đến máy chủ.' };
         }
-        if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
-            return { ok: false, message: 'Email đã được đăng ký.' };
-        }
-
-        // Lưu user mới
-        const newUser = {
-            id:        Date.now(),
-            firstName: firstName.trim(),
-            lastName:  lastName.trim(),
-            username:  username.trim(),
-            email:     email.trim().toLowerCase(),
-            password:  _hash(password),       // lưu hash, không lưu plain text
-            avatar:    firstName.charAt(0).toUpperCase() + lastName.charAt(0).toUpperCase(),
-            createdAt: new Date().toISOString(),
-        };
-
-        users.push(newUser);
-        _saveUsers(users);
-
-        // Tự động đăng nhập sau khi đăng ký
-        _startSession(newUser);
-
-        return { ok: true, message: 'Đăng ký thành công!', user: newUser };
     }
 
     /**
      * Đăng nhập
-     * @returns { ok: bool, message: string, user?: object }
+     * @returns { Promise<{ ok: bool, message: string, user?: object }> }
      */
-    function login({ identifier, password }) {
+    async function login({ identifier, password }) {
         if (!identifier || !password) {
             return { ok: false, message: 'Vui lòng điền đầy đủ thông tin.' };
         }
 
-        const users = _getUsers();
-        const user  = users.find(u =>
-            u.email    === identifier.toLowerCase() ||
-            u.username === identifier
-        );
+        try {
+            const response = await fetch(`${API_URL}/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: identifier.trim().toLowerCase(), password })
+            });
 
-        if (!user) {
-            return { ok: false, message: 'Tài khoản không tồn tại.' };
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+                 return { ok: false, message: data.message || 'Email hoặc mật khẩu không chính xác.' };
+            }
+
+            _startSession(data.user, data.token);
+            return { ok: true, message: 'Đăng nhập thành công!', user: data.user };
+        } catch (error) {
+            console.error('API Error:', error);
+            return { ok: false, message: 'Không thể kết nối đến máy chủ.' };
         }
-
-        if (user.password !== _hash(password)) {
-            return { ok: false, message: 'Mật khẩu không đúng.' };
-        }
-
-        _startSession(user);
-        return { ok: true, message: 'Đăng nhập thành công!', user };
     }
 
     /** Lưu session */
-    function _startSession(user) {
+    function _startSession(user, token) {
+        // Parse name back into first and last name for frontend compatibility
+        const nameParts = (user.name || '').split(' ');
+        const firstName = nameParts[0] || 'User';
+        const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+        
+        let avatar = user.avatarUrl;
+        if (!avatar) {
+            const firstLetter = firstName.charAt(0).toUpperCase();
+            const lastLetter = lastName ? lastName.charAt(0).toUpperCase() : '';
+            avatar = firstLetter + lastLetter;
+        }
+
         const session = {
             id:        user.id,
-            firstName: user.firstName,
-            lastName:  user.lastName,
-            username:  user.username,
+            firstName: firstName,
+            lastName:  lastName,
             email:     user.email,
-            avatar:    user.avatar,
+            role:      user.role,
+            avatar:    avatar,
             loginAt:   new Date().toISOString(),
         };
         localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+        localStorage.setItem(TOKEN_KEY, token);
     }
 
     /** Lấy user đang đăng nhập (null nếu chưa) */
@@ -124,20 +116,45 @@ const Auth = (() => {
         return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
     }
 
+    /** Lấy Auth Token JWT */
+    function getToken() {
+        return localStorage.getItem(TOKEN_KEY);
+    }
+
     /** Đăng xuất */
     function logout() {
         localStorage.removeItem(SESSION_KEY);
+        localStorage.removeItem(TOKEN_KEY);
     }
 
     /** Kiểm tra đã đăng nhập chưa */
     function isLoggedIn() {
-        return getSession() !== null;
+        return getSession() !== null && getToken() !== null;
     }
 
-    /** Lấy danh sách tất cả user (để debug) */
-    function getAllUsers() {
-        return _getUsers().map(u => ({ ...u, password: '***' }));
+    /** Utility func to make authenticated requests */
+    async function fetchWithAuth(endpoint, options = {}) {
+        const token = getToken();
+        if (!token) {
+            logout();
+            window.location.href = '../sign-in/index.html';
+            throw new Error('No token found');
+        }
+        
+        const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            ...(options.headers || {})
+        };
+
+        const res = await fetch(`${API_URL}${endpoint}`, { ...options, headers });
+        if (res.status === 401 || res.status === 403) {
+            logout();
+            window.location.href = '../sign-in/index.html';
+            throw new Error('Unauthorized');
+        }
+        return res.json();
     }
 
-    return { register, login, logout, getSession, isLoggedIn, getAllUsers };
+    return { register, login, logout, getSession, getToken, isLoggedIn, fetchWithAuth, API_URL };
 })();

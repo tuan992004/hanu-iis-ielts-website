@@ -62,25 +62,25 @@
             <div class="first-name">
                 <p>First Name</p>
                 <div class="form-field1">
-                <input type="text" placeholder="Label">
+                <input type="text" id="prof-firstName" placeholder="First Name">
                 </div>
             </div>
             <div class="last-name">
                 <p>Last Name</p>
                 <div class="form-field2">
-                <input type="text" placeholder="Label">
+                <input type="text" id="prof-lastName" placeholder="Last Name">
                 </div>
             </div>
             <div class="email">
                 <p>Email</p>
                 <div class="form-field3">
-                <input type="text" placeholder="Label">
+                <input type="text" id="prof-email" placeholder="Email" readonly>
                 </div>
             </div>
             <div class="des">
                 <p>Description</p>
                 <div class="form-field4">
-                <input type="text" placeholder="Label">
+                <input type="text" id="prof-bio" placeholder="Bio/Description">
                 </div>
             </div>
             <div class="lang">
@@ -194,5 +194,12 @@
             </div>
         </div>
     </footer>
+
+    <!-- Toast for Notifications -->
+    <div class="toast" id="toast" style="position:fixed; bottom:30px; right:30px; padding:15px; border-radius:8px; color:white; z-index:9999; display:none;"></div>
+
+    <script src="../auth.js"></script>
+    <script src="../header-auth.js"></script>
+    <script src="profile.js"></script>
 </body>
 </html>

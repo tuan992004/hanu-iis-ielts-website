@@ -241,7 +241,7 @@
         }
 
         // ── Handle sign up ────────────────────────────────
-        function handleSignUp() {
+        async function handleSignUp() {
             clearErrors();
 
             const firstName       = document.getElementById('firstName').value.trim();
@@ -271,25 +271,24 @@
             btn.classList.add('btn-loading');
             btn.textContent = 'Creating account...';
 
-            setTimeout(() => {
-                const result = Auth.register({ firstName, lastName, username, email, password, confirmPassword });
-                btn.classList.remove('btn-loading');
-                btn.textContent = 'Create Account';
+            const result = await Auth.register({ firstName, lastName, username, email, password, confirmPassword });
+            
+            btn.classList.remove('btn-loading');
+            btn.textContent = 'Create Account';
 
-                if (result.ok) {
-                    showToast(`🎉 Chào mừng ${firstName} đến với BandPath!`, 'success');
-                    sessionStorage.setItem('bp_welcome', `🎉 Chào mừng ${firstName} đến với BandPath!`);
-                    setTimeout(() => {
-                        window.location.href = '../category/index.html';
-                    }, 1500);
-                } else {
-                    showToast(result.message, 'error');
-                    // Map error to specific field
-                    if (result.message.includes('Username'))        showFieldError('username', result.message);
-                    else if (result.message.includes('Email'))      showFieldError('email', result.message);
-                    else if (result.message.includes('Mật khẩu'))  showFieldError(result.message.includes('xác nhận') ? 'confirmPassword' : 'password', result.message);
-                }
-            }, 700);
+            if (result.ok) {
+                showToast(`🎉 Chào mừng ${firstName} đến với BandPath!`, 'success');
+                sessionStorage.setItem('bp_welcome', `🎉 Chào mừng ${firstName} đến với BandPath!`);
+                setTimeout(() => {
+                    window.location.href = '../category/index.html';
+                }, 1500);
+            } else {
+                showToast(result.message, 'error');
+                // Map error to specific field
+                if (result.message.toLowerCase().includes('username'))   showFieldError('username', result.message);
+                else if (result.message.toLowerCase().includes('email')) showFieldError('email', result.message);
+                else if (result.message.toLowerCase().includes('mật khẩu')) showFieldError(result.message.includes('xác nhận') ? 'confirmPassword' : 'password', result.message);
+            }
         }
 
         // ── Social login placeholder ──────────────────────

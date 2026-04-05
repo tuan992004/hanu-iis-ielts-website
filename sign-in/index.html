@@ -226,7 +226,7 @@
         }
 
         // ── Handle sign in ────────────────────────────────
-        function handleSignIn() {
+        async function handleSignIn() {
             clearErrors();
             const identifier = document.getElementById('identifier').value.trim();
             const password   = document.getElementById('password').value;
@@ -248,27 +248,25 @@
             btn.classList.add('btn-loading');
             btn.textContent = 'Signing in...';
 
-            // Simulate slight delay for UX
-            setTimeout(() => {
-                const result = Auth.login({ identifier, password });
-                btn.classList.remove('btn-loading');
-                btn.textContent = 'Sign in';
+            const result = await Auth.login({ identifier, password });
+            
+            btn.classList.remove('btn-loading');
+            btn.textContent = 'Sign in';
 
-                if (result.ok) {
-                    showToast(`👋 Welcome back, ${result.user.firstName}!`, 'success');
-                    sessionStorage.setItem('bp_welcome', `👋 Welcome back, ${result.user.firstName}!`);
-                    setTimeout(() => {
-                        window.location.href = '../category/index.html';
-                    }, 1200);
-                } else {
-                    showToast(result.message, 'error');
-                    if (result.message.includes('Tài khoản')) {
-                        showFieldError('identifier','err-identifier', result.message);
-                    } else if (result.message.includes('Mật khẩu')) {
-                        showFieldError('password','err-password', result.message);
-                    }
+            if (result.ok) {
+                showToast(`👋 Welcome back, ${result.user.firstName}!`, 'success');
+                sessionStorage.setItem('bp_welcome', `👋 Welcome back, ${result.user.firstName}!`);
+                setTimeout(() => {
+                    window.location.href = '../category/index.html';
+                }, 1200);
+            } else {
+                showToast(result.message, 'error');
+                if (result.message.includes('Tài khoản') || result.message.includes('Email')) {
+                    showFieldError('identifier','err-identifier', result.message);
+                } else if (result.message.includes('Mật khẩu')) {
+                    showFieldError('password','err-password', result.message);
                 }
-            }, 600);
+            }
         }
 
         // ── Enter key support ─────────────────────────────

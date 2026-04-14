@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const path = require('path');
 const cors = require('cors');
 const errorHandler = require('./middlewares/errorHandler');
 const authRoutes = require('./routes/authRoutes');
@@ -15,6 +16,14 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes);
+
+// Static frontend files
+app.use(express.static(path.join(__dirname, '../../')));
+
+// Root route redirects to home-page
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../home-page/index.html'));
+});
 
 app.use(errorHandler);
 
